@@ -1,5 +1,6 @@
 <html>
   <head>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script> 
     <script type="text/javascript">
       var CLIENT_ID = '476088429836-dojf7c6dnrea0r04itdfic4r3fknlqn0.apps.googleusercontent.com';
@@ -20,6 +21,7 @@
         ];
 
       var oauthToken;
+      var comments;
 
 
       /**
@@ -98,6 +100,10 @@
               if (!resp.error) {
                 console.log(">> yay comment!! ");
                 console.log("the whole thing... \n", resp);
+                comments = resp.items;
+                if (resp.nextPageToken) {
+                  grab_even_more_comments(fileId, resp.nextPageToken);
+                }
               } else if (resp.error.code == 401) {
                 console.log(" >> 401 file");
                 // Access token might have expired.
@@ -111,10 +117,35 @@
           });
         }
 
+        function grab_even_more_comments(fileId, nextPageToken) {
+            var request = gapi.client.drive.comments.list({
+                'fileId': fileId,
+                'pageToken': nextPageToken
+            });
+            // request.setPageToken(nextPageToken);
+            request.execute(function(resp) {
+              console.log("even more comments...");
+              if (!resp.error) {
+                console.log("the next batch... \n", resp);
+                comments = comments.concat(resp.items);
+                latexItSafely();
+                if (resp.nextPageToken) {
+                  grab_even_more_comments(fileId, resp.nextPageToken);
+                }
+              } else if (resp.error.code == 401) {
+                console.log(" >> 401 file");
+                // Access token might have expired.
+                checkAuth();
+              } else {
+                console.log('An error occured: ' + resp.error.message);
+              }
+            });
+        }
+
         function handle_raw_content(x) {
-          console.log("OH SHIT!! I JUST GOT : ",x);
+          console.debug("OH SHIT!! I JUST GOT : ",x);
           $('.guts').html(x);
-          latexIt();
+          latexItSafely();
         }
         function downloadFile(url, callback) {
           if (url) {
@@ -137,10 +168,17 @@
 
         // Create and render a Picker object for searching images.
         function createPicker() {
-          console.log("about to pick something w/ ", oauthToken);
-          printFile('1XniQSnkhjSJQhbReAOhPvqXenZzIf0Aika5gyhUz7nc');
+          // console.log("Grabbing test document");
+          // printFile('1XniQSnkhjSJQhbReAOhPvqXenZzIf0Aika5gyhUz7nc');
+          // return
+
+          console.log("Grabbing session 38");
+          printFile('1bhrOjaW_1b3fNcN4aXkuUDb9nLKYSJewSYoIo3zXVc8');
           return
+
+          
           // USE THE STUFF BELOW HERE TO ACTUALLY PICK UP THE ID
+          console.log("about to pick something w/ ", oauthToken);
           if (pickerApiLoaded && oauthToken) {
             var view = new google.picker.View(google.picker.ViewId.DOCS);
             // view.setMimeTypes("image/png,image/jpeg,image/jpg");
@@ -187,8 +225,9 @@
           var orig_text = text;
           text = text.replace(/_/g, "\\_")
           text = text.replace(/\[/g, "{[}")
+          text = text.replace(/&/g, "\\&")
           text = text.replace(/]/g, "{]}")
-          console.log("a : "+text + " : " + text.indexOf('&#8221;') + " : "+text.indexOf('”')+" : "+text.indexOf('&rdquo;')+" : "+text.indexOf('"'));
+          // console.log("a : "+text + " : " + text.indexOf('&#8221;') + " : "+text.indexOf('”')+" : "+text.indexOf('&rdquo;')+" : "+text.indexOf('"'));
           text = text.replace(/“/g, "``")
           text = text.replace(/\“/g, "``")
           // console.log("b : "+text);
@@ -196,12 +235,14 @@
           text = text.replace(/\”/g, "''")
           text = text.replace(/\"/g, "''")
           // console.log("c : "+text);
-          text = text.replace(/</g, "\\textless")
+          text = text.replace(/</g, "\\textless ")
+          text = text.replace(/>/g, "\\textgreater ")
           if (orig_text != text) {
-            console.log("we just scrubbed "+ text);
+            console.debug("we just scrubbed "+ text);
           }
           return text;
       }
+
       function latexIt() {
         var backup = $('.guts').clone();
         var copy = $('.guts');
@@ -226,21 +267,21 @@
           color_array = el.css('color').match(/rgb\((\d*), (\d*), (\d*)\)/);  // r = 1, g = 2, b = 3
           if (color_array && color_array[1] + color_array[2] + color_array[3] > 0) {
             color_str = color_array[1]+","+color_array[2]+","+color_array[3];
-            console.log("just colored '"+el.text()+"'")
+            console.debug("just colored '"+el.text()+"'")
             el.text(" {\\color[RGB]{"+color_str+"}"+el.text()+"} ");
           }
           if (el.css("font-weight") == "bold") {
-            console.log("just bolded '"+el.text()+"'")
+            console.debug("just bolded '"+el.text()+"'")
             el.text("\\textbf{"+el.text()+"}");
           }
           if (el.css("font-style") == "italic") {
-            console.log("just italicized '"+el.text()+"'")
+            console.debug("just italicized '"+el.text()+"'")
             el.text("\\textit{"+el.text()+"}");
           }
           var font_size_str = el.css('font-size');
           if (font_size_str && parseInt(font_size_str.substring(0, font_size_str.length - 2)) > 14) {
             size = parseInt(font_size_str.substring(0, font_size_str.length - 2))
-            console.log("making the text HUGE because size is "+size+": "+el.text());
+            console.debug("making the text HUGE because size is "+size+": "+el.text());
             el.text(" {\\huge "+el.text()+" } ");
           }
 
@@ -252,6 +293,15 @@
         while (copy.find('[name=cmnt_ref'+com_i+']').length) {
           var ref_el = copy.find('[name=cmnt_ref'+com_i+']');
           var footnote = copy.find('[name=cmnt'+com_i+']').parent().find('span').text();
+          var possible_content = ref_el.parent().prev()
+          var comment = find_comment(footnote, possible_content);
+          if (comment) {
+            console.log("rebecca, you rock!");
+            footnote = mark_up_comment(footnote, comment);
+            attempt_to_highlight(comment, ref_el, possible_content);
+          } else {
+            console.warn("no love for '"+footnote+"'");
+          }
           ref_el.parent().prepend("\\footnote{"+footnote+"}");  // footnote has already been scrubbed
           ref_el.remove();
           ++com_i;
@@ -266,11 +316,46 @@
         })
         result =  "\\documentclass[11pt]{amsart}\n"+
           "\\usepackage{color}\n"+
+          "\\usepackage{soul}\n"+
           "\\setlength{\\parindent}{1cm} % Default is 15pt\n"+
           "\\setlength{\\parskip}{1cm plus4mm minus3mm}\n"+
           "\\begin{document}\n" + result + "\n" + "\\end{document}"
         $('.latex').text(result);
         $('.guts').html(backup.html())
+      }
+      latexItSafely = _.debounce(latexIt, 10000);
+      function attempt_to_highlight(comment, ref_el, possible_content) {
+        if (!comment.context || !comment.context.value) {
+          return;
+        }
+        if (possible_content.text() == latex_scrub_str(comment.context.value)) {
+          possible_content.text(" \\hl{ "+possible_content.text()+" } ");
+        } else {
+          console.warn("I didn't mush because I've got `"+possible_content.text()+"` vs `"+comment.context.value+"`");
+          debugger;
+        }
+
+      }
+      function find_comment(footnote, possible_content) {
+        // TODO : doesn't handle the duplicate footnote issues
+        return _.reduce(comments, function(memo, c) {
+          if (memo) {
+            return memo;
+          }
+          if (latex_scrub_str(c.content) == footnote) {
+            return c;
+          }
+          return _.find(c.replies, function(r) {
+            r.isReply = true;
+            return latex_scrub_str(r.content) == footnote;
+          });
+        }, null);
+      }
+      function mark_up_comment(footnote, comment) {
+        if (comment.isReply) {
+          return "$\\rightarrow$ \\textbf { "+comment.author.displayName +" } "+footnote +" \\textsubscript { "+comment.createdDate+" } ";
+        }
+        return "\\textbf { "+comment.author.displayName +" } "+footnote +" \\textsubscript { "+comment.createdDate+" } ";
       }
 
     </script>

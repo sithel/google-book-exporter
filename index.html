@@ -1,0 +1,291 @@
+<html>
+  <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script> 
+    <script type="text/javascript">
+      var CLIENT_ID = '476088429836-dojf7c6dnrea0r04itdfic4r3fknlqn0.apps.googleusercontent.com';
+
+      // The Browser API key obtained from the Google Developers Console.
+      // Replace with your own Browser API key, or your own key.
+      var DEVELOPER_KEY = 'AIzaSyBw_RU5aiiK4VgKpb0ypx_S9oLtx0S5LzM';
+
+      // Replace with your own App ID. (Its the first number in your Client ID)
+      var APP_ID = "476088429836";
+
+      var SCOPES = [
+          'https://www.googleapis.com/auth/drive.file',
+          'https://www.googleapis.com/auth/drive',
+          'email',
+          'profile',
+          // Add other scopes needed by your application.
+        ];
+
+      var oauthToken;
+
+
+      /**
+       * Check if the current user has authorized the application.
+       */
+      function checkAuth() {
+        console.log("in check auth");
+        gapi.auth.authorize(
+            {'client_id': CLIENT_ID, 'scope': SCOPES, 'immediate': true},
+            handleAuthResult);
+      }
+
+      /**
+       * Called when authorization server replies.
+       *
+       * @param {Object} authResult Authorization result.
+       */
+      function handleAuthResult(authResult) {
+        console.log("in auth result : ", authResult);
+        if (authResult && !authResult.error) {
+          console.log(">> yay");
+          oauthToken = authResult.access_token;
+          createPicker();
+          // Access token has been successfully retrieved, requests can be sent to the API
+        } else {
+          console.log(">> nay");
+          // No access token could be retrieved, force the authorization flow.
+          gapi.auth.authorize(
+              {'client_id': CLIENT_ID, 'scope': SCOPES, 'immediate': false},
+              handleAuthResult);
+          oauthToken = authResult.access_token;
+          createPicker();
+        }
+      }
+
+        /**
+         * Print a file's metadata.
+         *
+         * @param {String} fileId ID of the file to print metadata for.
+         */
+         // 1XniQSnkhjSJQhbReAOhPvqXenZzIf0Aika5gyhUz7nc  is id?
+        function printFile(fileId) {
+          console.log("in print File ", fileId);
+
+          gapi.client.load('drive', 'v2', function() {
+            console.log("in the drive loaded-ness...?");
+
+            var request = gapi.client.drive.files.get({
+                'fileId': fileId
+            });
+            request.execute(function(resp) {
+              console.log("in the execute callback");
+              if (!resp.error) {
+                console.log(">> yay file!! ");
+                console.log('Title: ' + resp.title);
+                console.log('Description: ' + resp.description);
+                console.log('MIME type: ' + resp.mimeType);
+                console.log('exportLinks: ' + resp.exportLinks);
+                console.log("the whole thing... \n", resp);
+                downloadFile(resp.exportLinks['text/html'], handle_raw_content);
+              } else if (resp.error.code == 401) {
+                console.log(" >> 401 file");
+                // Access token might have expired.
+                checkAuth();
+              } else {
+                console.log('An error occured: ' + resp.error.message);
+              }
+            });
+
+
+            var request = gapi.client.drive.comments.list({
+                'fileId': fileId
+            });
+            request.execute(function(resp) {
+              console.log("in the comment execute callback");
+              if (!resp.error) {
+                console.log(">> yay comment!! ");
+                console.log("the whole thing... \n", resp);
+              } else if (resp.error.code == 401) {
+                console.log(" >> 401 file");
+                // Access token might have expired.
+                checkAuth();
+              } else {
+                console.log('An error occured: ' + resp.error.message);
+              }
+            });
+
+
+          });
+        }
+
+        function handle_raw_content(x) {
+          console.log("OH SHIT!! I JUST GOT : ",x);
+          $('.guts').html(x);
+          latexIt();
+        }
+        function downloadFile(url, callback) {
+          if (url) {
+            var accessToken = gapi.auth.getToken().access_token;
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url);
+            xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
+            xhr.onload = function() {
+              callback(xhr.responseText);
+            };
+            xhr.onerror = function() {
+              callback(null);
+            };
+            xhr.send();
+          } else {
+            callback(null);
+          }
+        }
+
+
+        // Create and render a Picker object for searching images.
+        function createPicker() {
+          console.log("about to pick something w/ ", oauthToken);
+          printFile('1XniQSnkhjSJQhbReAOhPvqXenZzIf0Aika5gyhUz7nc');
+          return
+          // USE THE STUFF BELOW HERE TO ACTUALLY PICK UP THE ID
+          if (pickerApiLoaded && oauthToken) {
+            var view = new google.picker.View(google.picker.ViewId.DOCS);
+            // view.setMimeTypes("image/png,image/jpeg,image/jpg");
+            view.setMimeTypes("application/vnd.google-apps.document");
+            var picker = new google.picker.PickerBuilder()
+                .enableFeature(google.picker.Feature.NAV_HIDDEN)
+                .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+                .setAppId(APP_ID)
+                .setOAuthToken(oauthToken)
+                .addView(view)
+                .addView(new google.picker.DocsUploadView())
+                // .setDeveloperKey(DEVELOPER_KEY)
+                .setCallback(pickerCallback)
+                .build();
+             picker.setVisible(true);
+          }
+        }
+
+        // A simple callback implementation.
+        function pickerCallback(data) {
+          console.log(" 'sup callback? ", data);
+          if (data.action == google.picker.Action.PICKED) {
+            var fileId = data.docs[0].id;
+            console.log('The user selected: ' + fileId);
+            printFile(fileId)
+          }
+        }
+
+        function onPickerApiLoad() {
+          pickerApiLoaded = true;
+          createPicker();
+        }
+        function onClientLoad() {
+          console.log("... loaded the client library?");
+        }
+
+      function loadPicker() {
+        console.log(" > load picker....");
+        gapi.load('auth', {'callback': checkAuth});
+        gapi.load('client', {'callback': onClientLoad});
+        gapi.load('picker', {'callback': onPickerApiLoad});
+      }
+      function latex_scrub_str(text) {
+          var orig_text = text;
+          text = text.replace(/_/g, "\\_")
+          text = text.replace(/\[/g, "{[}")
+          text = text.replace(/]/g, "{]}")
+          console.log("a : "+text + " : " + text.indexOf('&#8221;') + " : "+text.indexOf('”')+" : "+text.indexOf('&rdquo;')+" : "+text.indexOf('"'));
+          text = text.replace(/“/g, "``")
+          text = text.replace(/\“/g, "``")
+          // console.log("b : "+text);
+          text = text.replace(/”/g, "''")
+          text = text.replace(/\”/g, "''")
+          text = text.replace(/\"/g, "''")
+          // console.log("c : "+text);
+          text = text.replace(/</g, "\\textless")
+          if (orig_text != text) {
+            console.log("we just scrubbed "+ text);
+          }
+          return text;
+      }
+      function latexIt() {
+        var backup = $('.guts').clone();
+        var copy = $('.guts');
+        var com_i = 1;
+        copy.find('span').each(function(i, x) {
+          var el = $(x);
+          var text = $(x).text();
+          el.text(latex_scrub_str(text));
+        });
+        copy.find('a').each(function(i, x) {
+          var el = $(x);
+          var text = $(x).text();
+          el.text(latex_scrub_str(text));
+        });
+
+        console.log("we're checking the font/color for "+copy.find('span').length)
+        copy.find('span').each(function(i, x) {
+          var el = $(x);
+          if (! el.text()) {
+            return;
+          }
+          color_array = el.css('color').match(/rgb\((\d*), (\d*), (\d*)\)/);  // r = 1, g = 2, b = 3
+          if (color_array && color_array[1] + color_array[2] + color_array[3] > 0) {
+            color_str = color_array[1]+","+color_array[2]+","+color_array[3];
+            console.log("just colored '"+el.text()+"'")
+            el.text(" {\\color[RGB]{"+color_str+"}"+el.text()+"} ");
+          }
+          if (el.css("font-weight") == "bold") {
+            console.log("just bolded '"+el.text()+"'")
+            el.text("\\textbf{"+el.text()+"}");
+          }
+          if (el.css("font-style") == "italic") {
+            console.log("just italicized '"+el.text()+"'")
+            el.text("\\textit{"+el.text()+"}");
+          }
+          var font_size_str = el.css('font-size');
+          if (font_size_str && parseInt(font_size_str.substring(0, font_size_str.length - 2)) > 14) {
+            size = parseInt(font_size_str.substring(0, font_size_str.length - 2))
+            console.log("making the text HUGE because size is "+size+": "+el.text());
+            el.text(" {\\huge "+el.text()+" } ");
+          }
+
+          if (el.css('text-align') == "center") {
+            el.text("\\begin{center}\n"+el.text()+"\n\\end{center}\n");
+          }
+        });
+
+        while (copy.find('[name=cmnt_ref'+com_i+']').length) {
+          var ref_el = copy.find('[name=cmnt_ref'+com_i+']');
+          var footnote = copy.find('[name=cmnt'+com_i+']').parent().find('span').text();
+          ref_el.parent().prepend("\\footnote{"+footnote+"}");  // footnote has already been scrubbed
+          ref_el.remove();
+          ++com_i;
+        }
+
+        result = ""
+        console.log("going to pick up... "+copy.find('>p').length);
+        copy.find('>p').each(function(i, x){
+          var el = $(x)
+          var text = el.text();
+          result = result + text + "\n\n";
+        })
+        result =  "\\documentclass[11pt]{amsart}\n"+
+          "\\usepackage{color}\n"+
+          "\\setlength{\\parindent}{1cm} % Default is 15pt\n"+
+          "\\setlength{\\parskip}{1cm plus4mm minus3mm}\n"+
+          "\\begin{document}\n" + result + "\n" + "\\end{document}"
+        $('.latex').text(result);
+        $('.guts').html(backup.html())
+      }
+
+    </script>
+    <script type="text/javascript" src="https://apis.google.com/js/api.js?onload=loadPicker"></script>
+    
+
+    <title>REB TEST</title>
+  </head>
+  <body>
+    <!-- YOUR CONTENT -->
+    Yo dawg, what's up?<br>
+    <div onclick="createPicker()">DO IT AGAIN</div>
+    <br>
+    <textarea class="latex" style="margin: 0px; width: 1000px; height: 300px;"></textarea> 
+    <hr>
+    <div class="guts"></div>
+  </body>
+</html>

@@ -223,18 +223,27 @@
       }
       function latex_scrub_str(text) {
           var orig_text = text;
+          // handle underscores?
           text = text.replace(/_/g, "\\_")
           text = text.replace(/\[/g, "{[}")
           text = text.replace(/&/g, "\\&")
           text = text.replace(/]/g, "{]}")
-          // console.log("a : "+text + " : " + text.indexOf('&#8221;') + " : "+text.indexOf('”')+" : "+text.indexOf('&rdquo;')+" : "+text.indexOf('"'));
+
+          text = text.replace(/’/g, "'")
+          text = text.replace(/\u2018/g, "'")
+          text = text.replace(/\u2019/g, "'")
+          
           text = text.replace(/“/g, "``")
           text = text.replace(/\“/g, "``")
-          // console.log("b : "+text);
+          text = text.replace(/\u201c/g, "``")
+
           text = text.replace(/”/g, "''")
           text = text.replace(/\”/g, "''")
           text = text.replace(/\"/g, "''")
-          // console.log("c : "+text);
+          text = text.replace(/\u201d/g, "''")
+
+          text = text.replace(/\u2026/g, "...")
+
           text = text.replace(/</g, "\\textless ")
           text = text.replace(/>/g, "\\textgreater ")
           if (orig_text != text) {
@@ -243,16 +252,43 @@
           return text;
       }
 
+      function inject_footnote_pre_markup(copy){
+        var com_i = 1;
+        while (copy.find('[name=cmnt_ref'+com_i+']').length) {
+          var ref_el = copy.find('[name=cmnt_ref'+com_i+']');
+          var footnote = copy.find('[name=cmnt'+com_i+']').parent().find('span').text();
+          var possible_content = ref_el.parent().prev()
+          var comment = find_comment(footnote, possible_content);
+          if (comment) {
+            console.log("rebecca, you rock!");
+            footnote = mark_up_comment(footnote, comment);
+            attempt_to_highlight(comment, ref_el, possible_content);
+          } else {
+            console.warn("no love for '"+footnote+"'");
+          }
+          ref_el.parent().prepend(footnote);  // neither footnote nor orig content has been scrubbed yet
+          ref_el.remove();
+          ++com_i;
+        }
+      }
+
       function latexIt() {
         var backup = $('.guts').clone();
         var copy = $('.guts');
-        var com_i = 1;
+
+        inject_footnote_pre_markup(copy);
+
         copy.find('span').each(function(i, x) {
           var el = $(x);
           var text = $(x).text();
           el.text(latex_scrub_str(text));
         });
         copy.find('a').each(function(i, x) {
+          var el = $(x);
+          var text = $(x).text();
+          el.text(latex_scrub_str(text));
+        });
+        copy.find('sup').each(function(i, x) {
           var el = $(x);
           var text = $(x).text();
           el.text(latex_scrub_str(text));
@@ -290,22 +326,7 @@
           }
         });
 
-        while (copy.find('[name=cmnt_ref'+com_i+']').length) {
-          var ref_el = copy.find('[name=cmnt_ref'+com_i+']');
-          var footnote = copy.find('[name=cmnt'+com_i+']').parent().find('span').text();
-          var possible_content = ref_el.parent().prev()
-          var comment = find_comment(footnote, possible_content);
-          if (comment) {
-            console.log("rebecca, you rock!");
-            footnote = mark_up_comment(footnote, comment);
-            attempt_to_highlight(comment, ref_el, possible_content);
-          } else {
-            console.warn("no love for '"+footnote+"'");
-          }
-          ref_el.parent().prepend("\\footnote{"+footnote+"}");  // footnote has already been scrubbed
-          ref_el.remove();
-          ++com_i;
-        }
+
 
         result = ""
         console.log("going to pick up... "+copy.find('>p').length);
@@ -314,6 +335,7 @@
           var text = el.text();
           result = result + text + "\n\n";
         })
+        result = repair_pre_markups(result);
         result =  "\\documentclass[11pt]{amsart}\n"+
           "\\usepackage{color}\n"+
           "\\usepackage{soul}\n"+
@@ -321,41 +343,65 @@
           "\\setlength{\\parskip}{1cm plus4mm minus3mm}\n"+
           "\\begin{document}\n" + result + "\n" + "\\end{document}"
         $('.latex').text(result);
-        $('.guts').html(backup.html())
+        // $('.guts').html(backup.html())
       }
       latexItSafely = _.debounce(latexIt, 10000);
+
+      function find_comment(footnote, possible_content) {
+        // TODO : doesn't handle the duplicate footnote issues
+        // No scrubbing here because it happens PRE scrubbing
+        footnote = footnote.replace(/\u00A0/g, " ");
+        console.log("Looking for footnote '"+footnote+"' --- ")
+        return _.reduce(comments, function(memo, c) {
+          if (memo) {
+            return memo;
+          }
+          if (c.content == footnote) {
+            return c;
+            console.log("  >> MATCHES!");
+          }
+          console.log("  >> does NOT match '"+c.content+"'")
+          return _.find(c.replies, function(r) {
+            r.isReply = true;
+            if (r.content == footnote) {
+               return true;
+               console.log("    >>>> MATCHES!");
+            } else {
+              console.log("    >>>> does NOT match reply '"+r.content+"'");
+            }
+            return r.content == footnote;
+          });
+        }, null);
+      }
+      function repair_pre_markups(result) {
+        result = result.replace(/REBECCAxxBEGINxxFOOTNOTExxBASICxx(.*?)xxHERExxISxxTHExxFOOTNOTExx(.*?)xxHERExxISxxTHExxDATExx(.*?)xxENDxxFOOTNOTE/g, 
+          " \\footnote{ \\textbf { $1 } $2 \\textsubscript{$3}} ")
+        result = result.replace(/REBECCAxxBEGINxxFOOTNOTExxREPLYxx(.*?)xxHERExxISxxTHExxFOOTNOTExx(.*?)xxHERExxISxxTHExxDATExx(.*?)xxENDxxFOOTNOTE/g, 
+          " \\footnote{ $\\rightarrow$ \\textbf { $1 } $2 \\textsubscript{$3}} ")
+        result = result.replace(/REBECCAxxBEGINxxHIGHLIGHTxx(.*?)xxENDxxHIGHLIGHT/g, 
+          " \\hl{ $1 } ")
+        return result;
+      }
+      function mark_up_comment(footnote, comment) {
+        if (comment.isReply) {
+          // return "$\\rightarrow$ \\textbf { "+comment.author.displayName +" } "+footnote +" \\textsubscript { "+comment.createdDate+" } ";
+          return "REBECCAxxBEGINxxFOOTNOTExxREPLYxx"+comment.author.displayName+"xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+comment.createdDate+"xxENDxxFOOTNOTE";
+        }
+        return "REBECCAxxBEGINxxFOOTNOTExxBASICxx"+comment.author.displayName+"xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+comment.createdDate+"xxENDxxFOOTNOTE";
+        // return "\\textbf { "+comment.author.displayName +" } "+footnote +" \\textsubscript { "+comment.createdDate+" } ";
+      }
       function attempt_to_highlight(comment, ref_el, possible_content) {
         if (!comment.context || !comment.context.value) {
           return;
         }
-        if (possible_content.text() == latex_scrub_str(comment.context.value)) {
-          possible_content.text(" \\hl{ "+possible_content.text()+" } ");
+        if (possible_content.text().replace(/\u00A0/g, " ") == comment.context.value) {
+          possible_content.text("REBECCAxxBEGINxxHIGHLIGHTxx"+possible_content.text()+"xxENDxxHIGHLIGHT");
+          // possible_content.text(" \\hl{ "+possible_content.text()+" } ");
         } else {
           console.warn("I didn't mush because I've got `"+possible_content.text()+"` vs `"+comment.context.value+"`");
           debugger;
         }
 
-      }
-      function find_comment(footnote, possible_content) {
-        // TODO : doesn't handle the duplicate footnote issues
-        return _.reduce(comments, function(memo, c) {
-          if (memo) {
-            return memo;
-          }
-          if (latex_scrub_str(c.content) == footnote) {
-            return c;
-          }
-          return _.find(c.replies, function(r) {
-            r.isReply = true;
-            return latex_scrub_str(r.content) == footnote;
-          });
-        }, null);
-      }
-      function mark_up_comment(footnote, comment) {
-        if (comment.isReply) {
-          return "$\\rightarrow$ \\textbf { "+comment.author.displayName +" } "+footnote +" \\textsubscript { "+comment.createdDate+" } ";
-        }
-        return "\\textbf { "+comment.author.displayName +" } "+footnote +" \\textsubscript { "+comment.createdDate+" } ";
       }
 
     </script>

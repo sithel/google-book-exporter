@@ -2,6 +2,7 @@
   <head>
     <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script> 
+    <script src="moment.js"></script> 
     <script type="text/javascript">
       var CLIENT_ID = '476088429836-dojf7c6dnrea0r04itdfic4r3fknlqn0.apps.googleusercontent.com';
 
@@ -173,13 +174,13 @@
           // printFile('1XniQSnkhjSJQhbReAOhPvqXenZzIf0Aika5gyhUz7nc');
           // return
 
-          console.log("Grabbing session 38");
-          printFile('1bhrOjaW_1b3fNcN4aXkuUDb9nLKYSJewSYoIo3zXVc8');
-          return
-
-          // console.log("Grabbing session 13");
-          // printFile('1uddywgTgSoVJgYJkNZHeO8D5Km2tFsdy1muDjwLXBag');
+          // console.log("Grabbing session 38");
+          // printFile('1bhrOjaW_1b3fNcN4aXkuUDb9nLKYSJewSYoIo3zXVc8');
           // return
+
+          console.log("Grabbing session 13");
+          printFile('1uddywgTgSoVJgYJkNZHeO8D5Km2tFsdy1muDjwLXBag');
+          return
           
           // USE THE STUFF BELOW HERE TO ACTUALLY PICK UP THE ID
           console.log("about to pick something w/ ", oauthToken);
@@ -331,16 +332,16 @@
           if (font_size_str && parseInt(font_size_str.substring(0, font_size_str.length - 2)) > 14) {
             var s = el.text().toLowerCase();
             size = parseInt(font_size_str.substring(0, font_size_str.length - 2))
-            console.debug("making the text HUGE because size is "+size+": "+el.text());
+            console.debug("making the text large because size is "+size+": "+el.text());
             if (s.indexOf('session') == -1 && !chapter_title) {
               chapter_title += el.text() +" ";
-              el.text("");
+              el.remove();
             } else if (s.indexOf('session ') > -1 && chapter_count == 1) {
               var s = 
-              chapter_count = s.substr(s.indexOf("session")+"session ".length);
-              el.text("");
+              chapter_count = parseInt(s.substr(s.indexOf("session")+"session ".length));
+              el.remove();
             } else {
-              el.text(" {\\huge "+el.text()+" } ");
+              el.text(" {\\LARGE "+el.text()+" } ");
             }
           }
 
@@ -373,51 +374,73 @@
           result = result + text + "\n\n";
         })
         result = repair_pre_markups(result);
-        result = result.replace(/^\\textbf\{(.*)\}\s$/g, "\sceneHeadline{ $1} ");
-        result =  "\\documentclass[11pt]{book}\n"+
+        result = result.replace(/\n\\underline{\s*(\w[^\n]*)}\s*\n/g, "\\jumpHeadline{$1}\n\n")
+        result = result.replace(/\n\\textbf{\s*(\w[^\n]*)}\s*\n/g, "\\sceneHeadline{$1}\n\n")
+        result =  ""+
+          "\\documentclass[10pt]{book}\n"+
           "\\usepackage{color}\n"+
           "\\usepackage{soul}\n"+
           "\\usepackage{titlesec}\n"+
-          "\\setlength{\\parindent}{1cm} % Default is 15pt\n"+
-          "\\setlength{\\parskip}{1cm plus4mm minus3mm}\n"+
-          "\\titleformat{\\chapter}[display]  {\\normalfont\\filcenter}{\\MakeUppercase{\\chaptertitlename}~\\thechapter}{10pt}{}\n"+
+          "\\setlength{\\parindent}{5mm} % Default is 15pt\n"+
+          "\\setlength{\\parskip}{5mm}\n"+
+          "\\titleformat{\\chapter}[display]  {\\large\\filcenter}{\\MakeUppercase{\\chaptertitlename}~\\thechapter}{0pt}{\\huge}[\\vspace{-40pt}]\n"+
           "\\renewcommand{\\chaptertitlename}{Session}\n" +
-          "\\usepackage{fancyhdr}\n"+
 
+          "\\usepackage{geometry}\n"+
+          "\\geometry{\n"+
+          " a5paper,\n"+
+          " bottom=20mm,\n"+
+          " left=10mm,\n"+
+          " right=10mm,\n"+
+          " top=20mm,\n"+
+          " bindingoffset=2cm,\n"+
+          "}\n"+
+
+
+          "\\usepackage{fancyhdr}\n"+
           "\\fancypagestyle{mainmatter}{\n"+
           "  \\fancyhf{}\n"+
-          "  \\fancyhead[CO]{Session \\thechapter}\n"+
-          "  \\fancyhead[CE]{\\leftmark}%\\leftmark}\n"+
-          "  \\fancyhead[LO,RE]{\\thepage}\n"+
+          "  \\fancyhead[CE]{Session \\thechapter}\n"+
+          "  \\fancyhead[CO]{\\leftmark}\n"+
+          "  \\fancyhead[LE,RO]{\\thepage}\n"+
           "}\n"+
 
           "\\newcommand*{\\sceneHeadline}[2][]{%\n"+
           "    \\noindent\\makebox[\\linewidth]{#1%\n"+
           "    \\textbf{#2}\n"+
-          "    \\leaders\\hrule height \\dimexpr.5ex+.2pt\\relax depth \\dimexpr -.5ex+.2pt\\relax \\hfill\\kern0pt}% Right rule\n"+
+          "    \\leaders\\hrule height \\dimexpr.5ex+.2pt\\relax depth \\dimexpr -.5ex+.2pt\\relax \\hfill\\kern0pt% Right rule\n"+
+          "    }\n"+
+          "}\n"+
+          "\\newcommand*{\\jumpHeadline}[2][]{%\n"+
+          "    \\noindent\\makebox[\\linewidth]{#1%\n"+
+          "    \\leaders\\hrule height \\dimexpr1.5ex+0pt\\relax depth \\dimexpr -.5ex+1pt\\relax \\hfill% Left rule\n"+
+          "    {\\MakeUppercase {\\large \\textbf{#2}}}\n"+
+          "    }\n"+
           "}\n"+
 
           "\\begin{document}\n"+
           "\\pagestyle{mainmatter}\n"+
           "\\renewcommand{\\chaptermark}[1]{ \\markboth{#1}{} }\n"+
+          "\\tableofcontents\n"+
           "\n\n\n" + 
+          "\\setcounter{chapter}{ "+ (chapter_count - 1)+" }\n"+  //gotta -1 since the chapter commant auto-bumps it up!
           "\\chapter{"+ chapter_title +"}\n"+ 
-          "\\setcounter{chapter}{ "+chapter_count+" }\n"+
           result + "\n\n\n\n \\end{document}";
+          console.error("YO! REBECCA! the chapter count is "+chapter_count);
         $('.latex').text(result);
         // $('.guts').html(backup.html())
-
- //        \usepackage{geometry}
- // \geometry{
- // a4paper,
- // bottom=20mm,
- // left=10mm,
- // right=10mm,
- // top=20mm,
- // bindingoffset=2cm,
- // }
       }
       latexItSafely = _.debounce(latexIt, 10000);
+
+
+// {
+// \textit{Notes:} Suko
+
+// \parskip=0pt
+
+// \textit{Date:} Dec 4th, 2014
+// }
+
 
       function find_comment(footnote, possible_content) {
         // TODO : doesn't handle the duplicate footnote issues
@@ -457,12 +480,11 @@
         return result;
       }
       function mark_up_comment(footnote, comment) {
+        date_formatted = moment(comment.createdDate).format('MM/DD/YY h:mma');  // "12/15/14 7:07pm"
         if (comment.isReply) {
-          // return "$\\rightarrow$ \\textbf { "+comment.author.displayName +" } "+footnote +" \\textsubscript { "+comment.createdDate+" } ";
-          return "REBECCAxxBEGINxxFOOTNOTExxREPLYxx"+comment.author.displayName+"xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+comment.createdDate+"xxENDxxFOOTNOTE";
+          return "REBECCAxxBEGINxxFOOTNOTExxREPLYxx"+comment.author.displayName+"xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+date_formatted+"xxENDxxFOOTNOTE";
         }
-        return "REBECCAxxBEGINxxFOOTNOTExxBASICxx"+comment.author.displayName+"xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+comment.createdDate+"xxENDxxFOOTNOTE";
-        // return "\\textbf { "+comment.author.displayName +" } "+footnote +" \\textsubscript { "+comment.createdDate+" } ";
+        return "REBECCAxxBEGINxxFOOTNOTExxBASICxx"+comment.author.displayName+"xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+date_formatted+"xxENDxxFOOTNOTE";
       }
       function attempt_to_highlight(comment, ref_el, possible_content) {
         if (!comment.context || !comment.context.value) {

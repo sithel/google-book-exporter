@@ -3,6 +3,7 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script> 
     <script src="moment.js"></script> 
+    <script src="latex.js"></script> 
     <script type="text/javascript">
       var CLIENT_ID = '476088429836-dojf7c6dnrea0r04itdfic4r3fknlqn0.apps.googleusercontent.com';
 
@@ -24,7 +25,7 @@
       var oauthToken;
       var comments;
       var backup;
-
+      var oauth2client;
 
       /**
        * Check if the current user has authorized the application.
@@ -42,8 +43,10 @@
        * @param {Object} authResult Authorization result.
        */
       function handleAuthResult(authResult) {
+        $('.status_step.auth').addClass('done');
         console.log("in auth result : ", authResult);
         if (authResult && !authResult.error) {
+          oauth2client = authResult
           console.log(">> yay");
           oauthToken = authResult.access_token;
           createPicker();
@@ -77,6 +80,7 @@
             request.execute(function(resp) {
               console.log("in the execute callback");
               if (!resp.error) {
+                $('.doc_details').html('<b>File ID</b>: '+fileId+'<br><b>File Name</b>: '+resp.title+'<br>');
                 console.log(">> yay file!! ");
                 console.log('Title: ' + resp.title);
                 console.log('Description: ' + resp.description);
@@ -95,23 +99,30 @@
 
 
             var request = gapi.client.drive.comments.list({
-                'fileId': fileId
+                'fileId': fileId,
+                'maxResults': 100,
             });
             request.execute(function(resp) {
-              console.log("in the comment execute callback");
+              $('.status_step.load_c').addClass('in-progress');
+              console.log("LOADING_COMMENTS: in the comment execute callback");
               if (!resp.error) {
-                console.log(">> yay comment!! ");
-                console.log("the whole thing... \n", resp);
+                console.log("LOADING_COMMENTS: >> yay comment!!  "+new Date());
+                console.log("LOADING_COMMENTS: the whole thing... \n", resp);
                 comments = resp.items;
+                $('.comment_count').text(comments.length);
                 if (resp.nextPageToken) {
                   grab_even_more_comments(fileId, resp.nextPageToken);
                 }
               } else if (resp.error.code == 401) {
-                console.log(" >> 401 file");
+                debugger;
+                $('.status_step.load_c').addClass('error');
+                console.log("LOADING_COMMENTS:  >> 401 file");
                 // Access token might have expired.
                 checkAuth();
               } else {
-                console.log('An error occured: ' + resp.error.message);
+                debugger;
+                $('.status_step.load_c').addClass('error');
+                console.log('LOADING_COMMENTS: An error occured (print file): '+new Date()+' ' + resp.error.message);
               }
             });
 
@@ -122,24 +133,31 @@
         function grab_even_more_comments(fileId, nextPageToken) {
             var request = gapi.client.drive.comments.list({
                 'fileId': fileId,
+                'maxResults': 100,
                 'pageToken': nextPageToken
-            });
+            }).withAuthClient(oauth2client);
             // request.setPageToken(nextPageToken);
             request.execute(function(resp) {
-              console.log("even more comments...");
+              $('.status_step.load_c').addClass('in-progress');
+              console.log("LOADING_COMMENTS: even more comments..." + new Date());
               if (!resp.error) {
-                console.log("the next batch... \n", resp);
+                console.log("LOADING_COMMENTS: the next batch... \n", resp);
                 comments = comments.concat(resp.items);
+                $('.comment_count').text(comments.length);
                 latexItSafely();
                 if (resp.nextPageToken) {
                   grab_even_more_comments(fileId, resp.nextPageToken);
                 }
               } else if (resp.error.code == 401) {
-                console.log(" >> 401 file");
+                debugger;
+                $('.status_step.load_c').addClass('error');
+                console.log("LOADING_COMMENTS:  >> 401 file");
                 // Access token might have expired.
                 checkAuth();
               } else {
-                console.log('An error occured: ' + resp.error.message);
+                debugger;
+                $('.status_step.load_c').addClass('error');
+                console.log('LOADING_COMMENTS: An error occured (grab even more):  '+new Date()+' ' + resp.error.message);
               }
             });
         }
@@ -147,9 +165,12 @@
         function handle_raw_content(x) {
           console.debug("OH SHIT!! I JUST GOT : ",x);
           $('.guts').html(x);
+          $('.doc_orig').html(x);
           latexItSafely();
         }
+
         function downloadFile(url, callback) {
+          $('.status_step.load_f').addClass('done');
           if (url) {
             var accessToken = gapi.auth.getToken().access_token;
             var xhr = new XMLHttpRequest();
@@ -171,14 +192,17 @@
         // Create and render a Picker object for searching images.
         function createPicker() {
           // console.log("Grabbing test document");
+          // $('.status_step.select').addClass('done');
           // printFile('1XniQSnkhjSJQhbReAOhPvqXenZzIf0Aika5gyhUz7nc');
           // return
 
           // console.log("Grabbing session 38");
+          // $('.status_step.select').addClass('done');
           // printFile('1bhrOjaW_1b3fNcN4aXkuUDb9nLKYSJewSYoIo3zXVc8');
           // return
 
           console.log("Grabbing session 13");
+          $('.status_step.select').addClass('done');
           printFile('1uddywgTgSoVJgYJkNZHeO8D5Km2tFsdy1muDjwLXBag');
           return
           
@@ -204,6 +228,7 @@
 
         // A simple callback implementation.
         function pickerCallback(data) {
+          $('.status_step.select').addClass('done');
           console.log(" 'sup callback? ", data);
           if (data.action == google.picker.Action.PICKED) {
             var fileId = data.docs[0].id;
@@ -221,323 +246,114 @@
         }
 
       function loadPicker() {
+        $('.status_step.start').addClass('done');
         console.log(" > load picker....");
         gapi.load('auth', {'callback': checkAuth});
         gapi.load('client', {'callback': onClientLoad});
         gapi.load('picker', {'callback': onPickerApiLoad});
       }
-      function latex_scrub_str(text) {
-          var orig_text = text;
-          // handle underscores?
-          text = text.replace(/_/g, "\\_")
-          text = text.replace(/\[/g, "{[}")
-          text = text.replace(/%/g, "\\%")
-          text = text.replace(/&/g, "\\&")
-          text = text.replace(/]/g, "{]}")
-
-          text = text.replace(/’/g, "'")
-          text = text.replace(/\u2018/g, "'")
-          text = text.replace(/\u2019/g, "'")
-          
-          text = text.replace(/“/g, "``")
-          text = text.replace(/\“/g, "``")
-          text = text.replace(/\u201c/g, "``")
-
-          text = text.replace(/”/g, "''")
-          text = text.replace(/\”/g, "''")
-          text = text.replace(/\"/g, "''")
-          text = text.replace(/\u201d/g, "''")
-
-          text = text.replace(/\u2026/g, "...")
-
-          text = text.replace(/</g, "\\textless ")
-          text = text.replace(/>/g, "\\textgreater ")
-          if (orig_text != text) {
-            console.debug("we just scrubbed "+ text);
-          }
-
-          text = text.replace(/\u00A0/g, " ");
-          return text;
-      }
-
-      function inject_footnote_pre_markup(copy){
-        var com_i = 1;
-        while (copy.find('[name=cmnt_ref'+com_i+']').length) {
-          var ref_el = copy.find('[name=cmnt_ref'+com_i+']');
-          var footnote = copy.find('[name=cmnt'+com_i+']').parent().find('span').text();
-          var possible_content = ref_el.parent().prev()
-          var comment = find_comment(footnote, possible_content);
-          if (comment) {
-            console.log("rebecca, you rock!");
-            footnote = mark_up_comment(footnote, comment);
-            attempt_to_highlight(comment, ref_el, possible_content);
-          } else {
-            console.warn("no love for '"+footnote+"'");
-          }
-          ref_el.parent().prepend(footnote);  // neither footnote nor orig content has been scrubbed yet
-          ref_el.remove();
-          ++com_i;
-        }
-      }
-
-      function latexIt() {
-        backup = $('.guts').clone();
-        var copy = $('.guts');
-        var chapter_title = "";
-        var chapter_count = 1;
-
-        inject_footnote_pre_markup(copy);
-
-        copy.find('span').each(function(i, x) {
-          var el = $(x);
-          var text = $(x).text();
-          el.text(latex_scrub_str(text));
-        });
-        copy.find('a').each(function(i, x) {
-          var el = $(x);
-          var text = $(x).text();
-          el.text(latex_scrub_str(text));
-        });
-        copy.find('sup').each(function(i, x) {
-          var el = $(x);
-          var text = $(x).text();
-          el.text(latex_scrub_str(text));
-        });
-
-        console.log("we're checking the font/color for "+copy.find('span').length)
-        copy.find('hr').each(function(i,x) {
-          var el = $(x);
-          el.after('<p><span style="font-size: 10px;">ADD_LINE_HERE</span></p>');
-        });
-        copy.find('span').each(function(i, x) {
-          var el = $(x);
-          if (! el.text()) {
-            return;
-          }
-          color_array = el.css('color').match(/rgb\((\d*), (\d*), (\d*)\)/);  // r = 1, g = 2, b = 3
-          if (color_array && color_array[1] + color_array[2] + color_array[3] > 0) {
-            color_str = color_array[1]+","+color_array[2]+","+color_array[3];
-            console.debug("just colored '"+el.text()+"'")
-            el.text(" {\\color[RGB]{"+color_str+"}"+el.text()+"} ");
-          }
-          if (el.css("font-weight") == "bold") {
-            console.debug("just bolded '"+el.text()+"'")
-            el.text("\\textbf{"+el.text()+"}");
-          }
-          if (el.css("font-style") == "italic") {
-            console.debug("just italicized '"+el.text()+"'")
-            el.text("\\textit{"+el.text()+"}");
-          }
-          var font_size_str = el.css('font-size');
-          if (font_size_str && parseInt(font_size_str.substring(0, font_size_str.length - 2)) > 14) {
-            var s = el.text().toLowerCase();
-            size = parseInt(font_size_str.substring(0, font_size_str.length - 2))
-            console.debug("making the text large because size is "+size+": "+el.text());
-            if (s.indexOf('session') == -1 && !chapter_title) {
-              chapter_title += el.text() +" ";
-              el.remove();
-            } else if (s.indexOf('session ') > -1 && chapter_count == 1) {
-              var s = 
-              chapter_count = parseInt(s.substr(s.indexOf("session")+"session ".length));
-              el.remove();
-            } else {
-              el.text(" {\\LARGE "+el.text()+" } ");
-            }
-          }
-
-          if (el.css('text-align') == "center") {
-            el.text("\\begin{center}\n"+el.text()+"\n\\end{center}\n");
-          }
-
-          if (el.css('text-decoration') == "underline") {
-            el.text("\\underline{ "+el.text()+" }");
-          }
-        });
-        copy.find('ul,ol').each(function(i, x) {
-          var el = $(x);
-          var type = (el[0].tagName == 'OL') ? 'enumerate' : 'itemize';
-          var s = "";
-          el.find('li').each(function(j, y) {
-            var el2 = $(y);
-            s += "\\item "+el2.text()+"\n";
-          });
-          el.before("<p><span>\\begin{"+type+"}\n"+s+"\\end{"+type+"}</span></p>");
-          el.remove();
-        });
 
 
-        result = ""
-        console.log("going to pick up... "+copy.find('>p').length);
-        copy.find('>p').each(function(i, x){
-          var el = $(x)
-          var text = el.text();
-          result = result + text + "\n\n";
-        })
-        result = repair_pre_markups(result);
-        result = result.replace(/\n\\underline{\s*(\w[^\n]*)}\s*\n/g, "\\jumpHeadline{$1}\n\n")
-        result = result.replace(/\n\\textbf{\s*(\w[^\n]*)}\s*\n/g, "\\sceneHeadline{$1}\n\n")
-        result =  ""+
-          "\\documentclass[10pt]{book}\n"+
-          "\\usepackage{color}\n"+
-          "\\usepackage{soul}\n"+
-          "\\usepackage{titlesec}\n"+
-          "\\setlength{\\parindent}{5mm} % Default is 15pt\n"+
-          "\\setlength{\\parskip}{5mm}\n"+
-          "\\titleformat{\\chapter}[display]  {\\large\\filcenter}{\\MakeUppercase{\\chaptertitlename}~\\thechapter}{0pt}{\\huge}[\\vspace{-40pt}]\n"+
-          "\\renewcommand{\\chaptertitlename}{Session}\n" +
-
-          "\\usepackage{geometry}\n"+
-          "\\geometry{\n"+
-          " a5paper,\n"+
-          " bottom=20mm,\n"+
-          " left=10mm,\n"+
-          " right=10mm,\n"+
-          " top=20mm,\n"+
-          " bindingoffset=2cm,\n"+
-          "}\n"+
-
-
-          "\\usepackage{fancyhdr}\n"+
-          "\\fancypagestyle{mainmatter}{\n"+
-          "  \\fancyhf{}\n"+
-          "  \\fancyhead[CE]{Session \\thechapter}\n"+
-          "  \\fancyhead[CO]{\\leftmark}\n"+
-          "  \\fancyhead[LE,RO]{\\thepage}\n"+
-          "}\n"+
-
-          "\\newcommand*{\\sceneHeadline}[2][]{%\n"+
-          "    \\noindent\\makebox[\\linewidth]{#1%\n"+
-          "    \\textbf{#2}\n"+
-          "    \\leaders\\hrule height \\dimexpr.5ex+.2pt\\relax depth \\dimexpr -.5ex+.2pt\\relax \\hfill\\kern0pt% Right rule\n"+
-          "    }\n"+
-          "}\n"+
-          "\\newcommand*{\\jumpHeadline}[2][]{%\n"+
-          "    \\noindent\\makebox[\\linewidth]{#1%\n"+
-          "    \\leaders\\hrule height \\dimexpr1.5ex+0pt\\relax depth \\dimexpr -.5ex+1pt\\relax \\hfill% Left rule\n"+
-          "    {\\MakeUppercase {\\large \\textbf{#2}}}\n"+
-          "    }\n"+
-          "}\n"+
-
-          "\\begin{document}\n"+
-          "\\pagestyle{mainmatter}\n"+
-          "\\renewcommand{\\chaptermark}[1]{ \\markboth{#1}{} }\n"+
-          "\\tableofcontents\n"+
-          "\n\n\n" + 
-          "\\setcounter{chapter}{ "+ (chapter_count - 1)+" }\n"+  //gotta -1 since the chapter commant auto-bumps it up!
-          "\\chapter{"+ chapter_title +"}\n"+ 
-          result + "\n\n\n\n \\end{document}";
-          console.error("YO! REBECCA! the chapter count is "+chapter_count);
-        $('.latex').text(result);
-        // $('.guts').html(backup.html())
-      }
-      latexItSafely = _.debounce(latexIt, 10000);
-
-
-// {
-// \textit{Notes:} Suko
-
-// \parskip=0pt
-
-// \textit{Date:} Dec 4th, 2014
-// }
-
-
-      function find_comment(footnote, possible_content) {
-        // TODO : doesn't handle the duplicate footnote issues
-        // No scrubbing here because it happens PRE scrubbing
-        footnote = footnote.replace(/\u00A0/g, " ");
-        console.log("Looking for footnote '"+footnote+"' --- ")
-        return _.reduce(comments, function(memo, c) {
-          if (memo) {
-            return memo;
-          }
-          if (c.content == footnote) {
-            return c;
-            // console.log("  >> MATCHES!");
-          }
-          // console.log("  >> does NOT match '"+c.content+"'")
-          return _.find(c.replies, function(r) {
-            r.isReply = true;
-            if (r.content == footnote) {
-               return true;
-               // console.log("    >>>> MATCHES!");
-            } else {
-              // console.log("    >>>> does NOT match reply '"+r.content+"'");
-            }
-            return r.content == footnote;
-          });
-        }, null);
-      }
-      function repair_pre_markups(result) {
-        result = result.replace(/REBECCAxxBEGINxxFOOTNOTExxBASICxx(.*?)xxHERExxISxxTHExxFOOTNOTExx(.*?)xxHERExxISxxTHExxDATExx(.*?)xxENDxxFOOTNOTE/g, 
-          " \\footnote{ \\textbf { $1 } $2 \\textsubscript{$3}} ");
-        result = result.replace(/REBECCAxxBEGINxxFOOTNOTExxREPLYxx(.*?)xxHERExxISxxTHExxFOOTNOTExx(.*?)xxHERExxISxxTHExxDATExx(.*?)xxENDxxFOOTNOTE/g, 
-          " \\footnote{ $\\rightarrow$ \\textbf { $1 } $2 \\textsubscript{$3}} ");
-        result = result.replace(/REBECCAxxBEGINxxHIGHLIGHTxx(.*?)xxENDxxHIGHLIGHT/g, 
-          " \\hl{ $1 } ");
-        result = result.replace(/ADD_LINE_HERE/g,
-          "\\noindent\\hrulefill");
-        return result;
-      }
-      function mark_up_comment(footnote, comment) {
-        date_formatted = moment(comment.createdDate).format('MM/DD/YY h:mma');  // "12/15/14 7:07pm"
-        if (comment.isReply) {
-          return "REBECCAxxBEGINxxFOOTNOTExxREPLYxx"+comment.author.displayName+"xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+date_formatted+"xxENDxxFOOTNOTE";
-        }
-        return "REBECCAxxBEGINxxFOOTNOTExxBASICxx"+comment.author.displayName+"xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+date_formatted+"xxENDxxFOOTNOTE";
-      }
-      function attempt_to_highlight(comment, ref_el, possible_content) {
-        if (!comment.context || !comment.context.value) {
-          return;
-        }
-        // the Google Drive API's comments don't serve non breaking spaces like this
-        possible_content_text = possible_content.text().replace(/\u00A0/g, " ").trim();
-        // undo the HTML escaping in the Google Drive API's comments content (want `á` for example, not `&#225;`)
-        comment_text = $('<span>'+comment.context.value+'</span>').text().trim();
-        if (possible_content_text == comment_text) {
-          possible_content.text("REBECCAxxBEGINxxHIGHLIGHTxx"+possible_content_text+"xxENDxxHIGHLIGHT");
-        } else if (comment_text.indexOf(possible_content_text) > -1) {
-          console.warn("I ALMOST mushed (but didn't) because I've got `"+possible_content_text+"` vs `"+comment_text+"`");
-          dangerously_grab_text(comment_text, possible_content_text, possible_content, possible_content);
-        } else {
-          console.warn("I didn't mush because I've got `"+possible_content_text+"` vs `"+comment_text+"`");
-          debugger;
-        }
-      }
-      function dangerously_grab_text(to_match, matched, currently_matched_el, start_el) {
-        console.warn("dangerously_grab_text: Dude, we're inside `dangerously_grab_text` w/ "+to_match+", "+matched+", and currently at : "+currently_matched_el.text())
-        var next_el = currently_matched_el.prev();
-        if ( !next_el.length) {
-          next_el = currently_matched_el.parent().prev().children().last();
-          matched = "\n" + matched;
-        } 
-        matched = next_el.text() + matched;
-        if (matched.replace(/(\s)/g, " ") == to_match.replace(/(\s)/g, " ")) {
-          console.warn("dangerously_grab_text: awwww yiiiiis, managed an extended match!!!  -"+to_match+"- vs ="+matched+"=");
-          start_el.text(start_el.text()+"xxENDxxHIGHLIGHT");
-          next_el.text("REBECCAxxBEGINxxHIGHLIGHTxx"+next_el.text());
-        } else if (matched.length > 1000) {
-          console.warn("dangerously_grab_text: bailing for the sake of safety... already 1000 char long... probably a failed match.  Currently at "+to_match+" vs "+matched);
-        } else {
-          console.warn("dangerously_grab_text: Well... shit... we didn't match yet.  Hows -"+to_match+"- vs ="+matched+"= looking... ?");
-          dangerously_grab_text(to_match, matched, next_el, start_el);
-        }
-
-      }
-
+    /*
+      - start with `loadPicker`
+      - eventually `handleAuthResult`
+      - `createPicker` -> `pickerCallback` -> `printFile`
+      - In parallel: `downloadFile` & grabbing comments + `grab_even_more_comments`
+      - `latexItSafely` after everything is done
+    */
     </script>
     <script type="text/javascript" src="https://apis.google.com/js/api.js?onload=loadPicker"></script>
-    
+    <style>
+    .error {
+      background-color: red;
+    }
+    .in-progress {
+      background-color: yellow;
+    }
+    .done {
+      background-color: green;
+    }
+    .status_bar {
+      padding: 0px 10px 35px 0px;
+    }
+    .status_step {
+      display: inline-block;
+      border: 3px solid black;
+      padding: 10px;
+      margin: 0px;
+    }
+    .content {
+      vertical-align: top;
+    }
+    .col {
+      display: inline-block;
+      width: 49%;
+      vertical-align: top;
+    }
+    .guts, .results {
+      border-right: 1px solid black;
+    }
+    .comment-in-question {
+      font-family: monospace;
+      background-color: rgba(142, 183, 212, 0.42);
+    }
+    .comment-contrast td {
+      width: 49%;
+    }
+    .comment-contrast {
+      border: 1px solid black;
+      padding: 0px 30px;
+      margin-bottom: 15px;
+    }
+    .bad {
+      background-color: rgba(177, 87, 87, 0.39);
+    }
+    .good {
+      background-color: rgba(124, 181, 124, 0.44);
+    }
+    .problems li {
+        margin-bottom: 15px;
+    }
+    </style>
 
     <title>REB TEST</title>
   </head>
   <body>
-    <!-- YOUR CONTENT -->
-    Yo dawg, what's up?<br>
-    <div onclick="createPicker()">DO IT AGAIN</div>
-    <br>
-    <textarea class="latex" style="margin: 0px; width: 1000px; height: 300px;"></textarea> 
+
+    <h2>Google Doc Exporter</h2>
+
+    <div class="status_bar">
+      <div class="status_step start">Start
+      </div><div class="status_step auth">Authenticating
+      </div><div class="status_step select">Select File
+      </div><div class="status_step load_f">Load File
+      </div><div class="status_step load_c">Load All Comments (<span class="comment_count"><!-- dynamically added later --></span>)
+      </div><div class="status_step pre_comments">Pre-Comment Matching
+      </div><div class="status_step scrub">LaTeX character scrub
+      </div><div class="status_step markup">LaTex markup
+      </div><div class="status_step results">Done
+      </div>
+    </div>
+
+    <div class="doc_details">
+      <!-- dynamically added later -->
+    </div>
+    <div class="results col">
+      <textarea class="latex" style="margin: 0px; width: 95%; height: 80%;"></textarea> 
+      <br>
+      <div onclick="createPicker()">DO IT AGAIN</div>
+    </div>
+    <div class="problems col">
+      <!-- dynamically added later -->
+    </div>
     <hr>
-    <div class="guts"></div>
+    <div class="content">
+      <div class="guts col">
+        <!-- dynamically added later -->
+      </div>
+      <div class="doc_orig col">
+        <!-- dynamically added later -->
+      </div>
+    </div>
   </body>
 </html>

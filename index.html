@@ -114,13 +114,11 @@
                   grab_even_more_comments(fileId, resp.nextPageToken);
                 }
               } else if (resp.error.code == 401) {
-                debugger;
                 $('.status_step.load_c').addClass('error');
                 console.log("LOADING_COMMENTS:  >> 401 file");
                 // Access token might have expired.
                 checkAuth();
               } else {
-                debugger;
                 $('.status_step.load_c').addClass('error');
                 console.log('LOADING_COMMENTS: An error occured (print file): '+new Date()+' ' + resp.error.message);
               }
@@ -201,10 +199,10 @@
           // printFile('1bhrOjaW_1b3fNcN4aXkuUDb9nLKYSJewSYoIo3zXVc8');
           // return
 
-          console.log("Grabbing session 13");
-          $('.status_step.select').addClass('done');
-          printFile('1uddywgTgSoVJgYJkNZHeO8D5Km2tFsdy1muDjwLXBag');
-          return
+          // console.log("Grabbing session 13");
+          // $('.status_step.select').addClass('done');
+          // printFile('1uddywgTgSoVJgYJkNZHeO8D5Km2tFsdy1muDjwLXBag');
+          // return
           
           // USE THE STUFF BELOW HERE TO ACTUALLY PICK UP THE ID
           console.log("about to pick something w/ ", oauthToken);
@@ -246,6 +244,10 @@
         }
 
       function loadPicker() {
+        if (!loaded_latex_js) {
+          console.error("Looks like all the JS didn't propperly load. Look into that.");
+          return;
+        }
         $('.status_step.start').addClass('done');
         console.log(" > load picker....");
         gapi.load('auth', {'callback': checkAuth});
@@ -312,11 +314,18 @@
       background-color: rgba(124, 181, 124, 0.44);
     }
     .problems li {
-        margin-bottom: 15px;
+      margin-bottom: 15px;
+    }
+    .header {
+      display: none;
+    }
+    .output-option {
+      margin-left: 20px;
+      margin-right: 0px;
     }
     </style>
 
-    <title>REB TEST</title>
+    <title>Google Doc to LaTeX Exporter</title>
   </head>
   <body>
 
@@ -341,7 +350,15 @@
     <div class="results col">
       <textarea class="latex" style="margin: 0px; width: 95%; height: 80%;"></textarea> 
       <br>
-      <div onclick="createPicker()">DO IT AGAIN</div>
+      <div class="options">
+        <input type="radio" class="output-option" value="both" name="output" checked onclick="determine_output()">
+          Stand alone (header + chapter)
+        <input type="radio" class="output-option" value="chap-only" name="output" onclick="determine_output()">
+          Just chapter
+        <input type="radio" class="output-option" value="header-only" name="output" onclick="determine_output()">
+          Header + <input type="text" size="2"> files
+      </div>
+      LaTeX file: <span class="text-length">0</span> characters
     </div>
     <div class="problems col">
       <!-- dynamically added later -->
@@ -354,6 +371,48 @@
       <div class="doc_orig col">
         <!-- dynamically added later -->
       </div>
+    </div>
+    <div class="header">
+\documentclass[10pt]{book}
+\usepackage{color}
+\usepackage{soul}
+\usepackage{titlesec}
+\setlength{\parindent}{5mm} % Default is 15pt
+\setlength{\parskip}{5mm}
+\titleformat{\chapter}[display]  {\large\filcenter}{\MakeUppercase{\chaptertitlename}~\thechapter}{0pt}{\huge}[\vspace{-40pt}]
+\renewcommand{\chaptertitlename}{Session}
+\usepackage{geometry}
+\geometry{
+ a5paper,
+ bottom=20mm,
+ left=10mm,
+ right=10mm,
+ top=20mm,
+ bindingoffset=2cm,
+}
+\usepackage{fancyhdr}
+\fancypagestyle{mainmatter}{
+  \fancyhf{}
+  \fancyhead[CE]{Session \thechapter}
+  \fancyhead[CO]{\leftmark}
+  \fancyhead[LE,RO]{\thepage}
+}
+\newcommand*{\sceneHeadline}[2][]{%
+    \noindent\makebox[\linewidth]{#1%
+    \textbf{#2}
+    \leaders\hrule height \dimexpr.5ex+.2pt\relax depth \dimexpr -.5ex+.2pt\relax \hfill\kern0pt% Right rule
+    }
+}
+\newcommand*{\jumpHeadline}[2][]{%
+    \noindent\makebox[\linewidth]{#1%
+    \leaders\hrule height \dimexpr1.5ex+0pt\relax depth \dimexpr -.5ex+1pt\relax \hfill% Left rule
+    {\MakeUppercase {\large \textbf{#2}}}
+    }
+}
+\begin{document}
+\pagestyle{mainmatter}
+\renewcommand{\chaptermark}[1]{ \markboth{#1}{} }
+\tableofcontents
     </div>
   </body>
 </html>

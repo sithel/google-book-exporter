@@ -96,68 +96,69 @@
                 console.log('An error occured: ' + resp.error.message);
               }
             });
+            comments = [];
+            grab_even_more_comments(fileId, null);
 
-
-            var request = gapi.client.drive.comments.list({
-                'fileId': fileId,
-                'maxResults': 100,
-            });
-            request.execute(function(resp) {
-              $('.status_step.load_c').addClass('in-progress');
-              console.log("LOADING_COMMENTS: in the comment execute callback");
-              if (!resp.error) {
-                console.log("LOADING_COMMENTS: >> yay comment!!  "+new Date());
-                console.log("LOADING_COMMENTS: the whole thing... \n", resp);
-                comments = resp.items;
-                $('.comment_count').text(comments.length);
-                if (resp.nextPageToken) {
-                  grab_even_more_comments(fileId, resp.nextPageToken);
-                }
-              } else if (resp.error.code == 401) {
-                $('.status_step.load_c').addClass('error');
-                console.log("LOADING_COMMENTS:  >> 401 file");
-                // Access token might have expired.
-                checkAuth();
-              } else {
-                $('.status_step.load_c').addClass('error');
-                console.log('LOADING_COMMENTS: An error occured (print file): '+new Date()+' ' + resp.error.message);
-              }
-            });
+            // var request = gapi.client.drive.comments.list({
+            //     'fileId': fileId,
+            //     'maxResults': 100,
+            // });
+            // request.execute(function(resp) {
+            //   $('.status_step.load_c').addClass('in-progress');
+            //   console.log("LOADING_COMMENTS: in the comment execute callback");
+            //   if (!resp.error) {
+            //     console.log("LOADING_COMMENTS: >> yay comment!!  "+new Date());
+            //     console.log("LOADING_COMMENTS: the whole thing... \n", resp);
+            //     comments = resp.items;
+            //     $('.comment_count').text(comments.length);
+            //     if (resp.nextPageToken) {
+            //       grab_even_more_comments(fileId, resp.nextPageToken);
+            //     }
+            //   } else if (resp.error.code == 401) {
+            //     $('.status_step.load_c').addClass('error');
+            //     console.log("LOADING_COMMENTS:  >> 401 file");
+            //     // Access token might have expired.
+            //     checkAuth();
+            //   } else {
+            //     $('.status_step.load_c').addClass('error');
+            //     console.log('LOADING_COMMENTS: An error occured (print file): '+new Date()+' ' + resp.error.message);
+            //   }
+            // });
 
 
           });
         }
 
         function grab_even_more_comments(fileId, nextPageToken) {
-            var request = gapi.client.drive.comments.list({
-                'fileId': fileId,
-                'maxResults': 100,
-                'pageToken': nextPageToken
-            }).withAuthClient(oauth2client);
-            // request.setPageToken(nextPageToken);
-            request.execute(function(resp) {
-              $('.status_step.load_c').addClass('in-progress');
-              console.log("LOADING_COMMENTS: even more comments..." + new Date());
-              if (!resp.error) {
-                console.log("LOADING_COMMENTS: the next batch... \n", resp);
-                comments = comments.concat(resp.items);
-                $('.comment_count').text(comments.length);
-                latexItSafely();
-                if (resp.nextPageToken) {
-                  grab_even_more_comments(fileId, resp.nextPageToken);
-                }
-              } else if (resp.error.code == 401) {
-                debugger;
-                $('.status_step.load_c').addClass('error');
-                console.log("LOADING_COMMENTS:  >> 401 file");
-                // Access token might have expired.
-                checkAuth();
-              } else {
-                debugger;
-                $('.status_step.load_c').addClass('error');
-                console.log('LOADING_COMMENTS: An error occured (grab even more):  '+new Date()+' ' + resp.error.message);
+          console.log("LOADING_COMMENTS: About to grab more comments for "+nextPageToken +" (comment count : "+comments.length+")");
+          var request = gapi.client.drive.comments.list({
+              'fileId': fileId,
+              'maxResults': 100,
+              'pageToken': nextPageToken
+          });
+          // request.setPageToken(nextPageToken);
+          request.execute(function(resp) {
+            $('.status_step.load_c').addClass('in-progress');
+            console.log("LOADING_COMMENTS: even more comments..." + new Date() + " : " + nextPageToken +" (comment count : "+comments.length+")");
+            if (!resp.error) {
+              console.log("LOADING_COMMENTS: the next batch... \n", resp);
+              comments = comments.concat(resp.items);
+              $('.comment_count').text(comments.length);
+              latexItSafely();
+              if (resp.nextPageToken) {
+                console.log("LOADING_COMMENTS: I *see* a next page token, going for it... "+resp.nextPageToken +" (comment count : "+comments.length+")");
+                grab_even_more_comments(fileId, resp.nextPageToken);
               }
-            });
+            } else if (resp.error.code == 401) {
+              $('.status_step.load_c').addClass('error');
+              console.log("LOADING_COMMENTS:  >> 401 file");
+              // Access token might have expired.
+              checkAuth();
+            } else {
+              $('.status_step.load_c').addClass('error');
+              console.log('LOADING_COMMENTS: An error occured (grab even more):  '+new Date()+' ' + resp.error.message +" (comment count : "+comments.length+")");
+            }
+          });
         }
 
         function handle_raw_content(x) {
@@ -348,7 +349,7 @@
       <!-- dynamically added later -->
     </div>
     <div class="results col">
-      <textarea class="latex" style="margin: 0px; width: 95%; height: 80%;"></textarea> 
+      <textarea class="latex" style="margin: 0px; width: 95%; height: 75%;"></textarea> 
       <br>
       <div class="options">
         <input type="radio" class="output-option" value="both" name="output" checked onclick="determine_output()">
@@ -408,6 +409,9 @@
     \leaders\hrule height \dimexpr1.5ex+0pt\relax depth \dimexpr -.5ex+1pt\relax \hfill% Left rule
     {\MakeUppercase {\large \textbf{#2}}}
     }
+}
+\newcommand*{\extraIndent}[2][]{%
+    \-\hspace{3cm}#2
 }
 \begin{document}
 \pagestyle{mainmatter}

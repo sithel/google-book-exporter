@@ -7,6 +7,7 @@ function latex_scrub_str(text) {
   var orig_text = text;
   text = text.replace(/_/g, "\\_")
   text = text.replace(/#/g, "\\#")
+  text = text.replace(/\$/g, "\\\$")
   text = text.replace(/\[/g, "{[}")
   text = text.replace(/%/g, "\\%")
   text = text.replace(/&/g, "\\&")
@@ -63,13 +64,7 @@ function latexIt() {
   $('.status_step.markup').addClass('done');
   correct_list_markup(copy);
 
-  var result = ""
-  console.log("going to pick up... "+copy.find('>p').length);
-  copy.find('>p').each(function(i, x){
-    var el = $(x)
-    var text = el.text();
-    result = result + text + "\n\n";
-  })
+  var result = collect_all_paragraphs(copy);
   result = repair_pre_markups(result);
 
   // TODO : allow this to be enabled/disabled
@@ -79,13 +74,42 @@ function latexIt() {
   result = result.replace(/\n\\underline{\s*\\hl{\s*(\w[^\n]*)}\s*\n/g, "\\jumpHeadline{\\hl{$1}\n\n")
   result = result.replace(/\n\\textbf{\s*\\hl{\s*(\w[^\n]*)}\s*\n/g, "\\sceneHeadline{\\hl{$1}\n\n")
 
+  var error_report = generate_latex_error_report();
+
   $('.status_step.results').addClass('done');
 
   latex_config.latex_chapter = result;
+  latex_config.error_report = error_report;
   determine_output();
 }
 var latexItSafely = _.debounce(latexIt, 10000);
 
+function collect_all_paragraphs(copy) {
+  console.log("Smooshing down "+copy.find('>p').length+" paragraphs");
+  var result = "";
+  copy.find('>p').each(function(i, x){
+    var el = $(x)
+    var text = el.text();
+    // why >10? Eh, magic constants. I don't want to pick up small margin tweaks
+    if (parseInt(el.css('margin-left')) > 10) {
+      text = "\\extraIndent" + test;
+    }
+    result = result + text + "\n\n";
+  });
+  return result;
+}
+
+function generate_latex_error_report() {
+  var result = "";
+  $('.problems li').each(function(i,x ){
+    var el = $(x);
+    result += "\t" + el.text() + "\n";
+    // TODO : clean up the .text() content-- things get a little squished and the tables could be better broken appart
+    // console.log("LOADING_COMMENTS: "+el.text());
+  });
+  result = "\n\\iffalse\n\nTHESE ARE ERRORS ENCOUNTERED DURING THE EXPORT PROCESS\n" + result + "\n\\fi\n";
+  return result;
+}
 
 // We want the comments linked up and put into the document where they belong... but remember that we're going to scrub/escape
 // all special characters AFTER this, so we can't actually mark up the footnotes LaTeX style yet, that'll all just get escaped
@@ -207,10 +231,10 @@ function correct_list_markup(copy) {
 
 // This can be run repeatedly without expensive calculations
 function determine_output() {
-  var result = latex_config.latex_chapter;
+  var result = latex_config.latex_chapter + latex_config.error_report;
   var option = $('.output-option:checked').val()
   if (option == "chap-only") {
-    result = latex_config.latex_chapter;
+    // keep the result as-is
   } else if (option == "both") {
     result =  $('.header').text() +
       "\n\n\n" + 
@@ -266,17 +290,17 @@ function find_comment(footnote, possible_content) {
 function mark_up_comment(footnote, comment) {
   var date_formatted = moment(comment.createdDate).format('MM/DD/YY h:mma');  // "12/15/14 7:07pm"
   if (comment.isReply) {
-    return "REBECCAxxBEGINxxFOOTNOTExxREPLYxx"+comment.author.displayName+"xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+date_formatted+"xxENDxxFOOTNOTE";
+    return "REBECCAxxBEGINxxFOOTNOTExxREPLYxx"+comment.author.displayName+" xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+date_formatted+"xxENDxxFOOTNOTE";
   }
-  return "REBECCAxxBEGINxxFOOTNOTExxBASICxx"+comment.author.displayName+"xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+date_formatted+"xxENDxxFOOTNOTE";
+  return "REBECCAxxBEGINxxFOOTNOTExxBASICxx"+comment.author.displayName+" xxHERExxISxxTHExxFOOTNOTExx"+footnote+"xxHERExxISxxTHExxDATExx"+date_formatted+"xxENDxxFOOTNOTE";
 }
 
 function repair_pre_markups(result) {
   // using [\s\S] rather than . so that it'll pick up multi-line stuff
   var result = result.replace(/REBECCAxxBEGINxxFOOTNOTExxBASICxx([\s\S]*?)xxHERExxISxxTHExxFOOTNOTExx([\s\S]*?)xxHERExxISxxTHExxDATExx(.*?)xxENDxxFOOTNOTE/g, 
-    "\\footnote{\\textbf{$1}$2\\textsubscript{$3}}");
+    "\\footnote{\\textbf{$1}$2 \\textsubscript{$3}}");
   result = result.replace(/REBECCAxxBEGINxxFOOTNOTExxREPLYxx([\s\S]*?)xxHERExxISxxTHExxFOOTNOTExx([\s\S]*?)xxHERExxISxxTHExxDATExx(.*?)xxENDxxFOOTNOTE/g, 
-    "\\footnote{$\\rightarrow$\\textbf{$1}$2\\textsubscript{$3}}");
+    "\\footnote{$\\rightarrow$\\textbf{$1}$2 \\textsubscript{$3}}");
   result = result.replace(/REBECCAxxBEGINxxHIGHLIGHTxx(.*?)xxENDxxHIGHLIGHT/g, 
     "\\hl{$1}");
   result = result.replace(/ADD_LINE_HERE/g,

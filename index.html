@@ -23,9 +23,9 @@
         ];
 
       var oauthToken;
-      var comments;
       var backup;
       var oauth2client;
+      var doc_info = {};
 
       /**
        * Check if the current user has authorized the application.
@@ -81,6 +81,8 @@
               console.log("in the execute callback");
               if (!resp.error) {
                 $('.doc_details').html('<b>File ID</b>: '+fileId+'<br><b>File Name</b>: '+resp.title+'<br>');
+                doc_info.lastEdit = resp.modifiedDate;
+                doc_info.lastEditor = resp.lastModifyingUser.displayName;
                 console.log(">> yay file!! ");
                 console.log('Title: ' + resp.title);
                 console.log('Description: ' + resp.description);
@@ -96,41 +98,13 @@
                 console.log('An error occured: ' + resp.error.message);
               }
             });
-            comments = [];
+            doc_info.comments = [];
             grab_even_more_comments(fileId, null);
-
-            // var request = gapi.client.drive.comments.list({
-            //     'fileId': fileId,
-            //     'maxResults': 100,
-            // });
-            // request.execute(function(resp) {
-            //   $('.status_step.load_c').addClass('in-progress');
-            //   console.log("LOADING_COMMENTS: in the comment execute callback");
-            //   if (!resp.error) {
-            //     console.log("LOADING_COMMENTS: >> yay comment!!  "+new Date());
-            //     console.log("LOADING_COMMENTS: the whole thing... \n", resp);
-            //     comments = resp.items;
-            //     $('.comment_count').text(comments.length);
-            //     if (resp.nextPageToken) {
-            //       grab_even_more_comments(fileId, resp.nextPageToken);
-            //     }
-            //   } else if (resp.error.code == 401) {
-            //     $('.status_step.load_c').addClass('error');
-            //     console.log("LOADING_COMMENTS:  >> 401 file");
-            //     // Access token might have expired.
-            //     checkAuth();
-            //   } else {
-            //     $('.status_step.load_c').addClass('error');
-            //     console.log('LOADING_COMMENTS: An error occured (print file): '+new Date()+' ' + resp.error.message);
-            //   }
-            // });
-
-
           });
         }
 
         function grab_even_more_comments(fileId, nextPageToken) {
-          console.log("LOADING_COMMENTS: About to grab more comments for "+nextPageToken +" (comment count : "+comments.length+")");
+          console.log("LOADING_COMMENTS: About to grab more comments for "+nextPageToken +" (comment count : "+doc_info.comments.length+")");
           var request = gapi.client.drive.comments.list({
               'fileId': fileId,
               'maxResults': 100,
@@ -139,14 +113,14 @@
           // request.setPageToken(nextPageToken);
           request.execute(function(resp) {
             $('.status_step.load_c').addClass('in-progress');
-            console.log("LOADING_COMMENTS: even more comments..." + new Date() + " : " + nextPageToken +" (comment count : "+comments.length+")");
+            console.log("LOADING_COMMENTS: even more comments..." + new Date() + " : " + nextPageToken +" (comment count : "+doc_info.comments.length+")");
             if (!resp.error) {
               console.log("LOADING_COMMENTS: the next batch... \n", resp);
-              comments = comments.concat(resp.items);
-              $('.comment_count').text(comments.length);
+              doc_info.comments = doc_info.comments.concat(resp.items);
+              $('.comment_count').text(doc_info.comments.length);
               latexItSafely();
               if (resp.nextPageToken) {
-                console.log("LOADING_COMMENTS: I *see* a next page token, going for it... "+resp.nextPageToken +" (comment count : "+comments.length+")");
+                console.log("LOADING_COMMENTS: I *see* a next page token, going for it... "+resp.nextPageToken +" (comment count : "+doc_info.comments.length+")");
                 grab_even_more_comments(fileId, resp.nextPageToken);
               }
             } else if (resp.error.code == 401) {
@@ -156,7 +130,7 @@
               checkAuth();
             } else {
               $('.status_step.load_c').addClass('error');
-              console.log('LOADING_COMMENTS: An error occured (grab even more):  '+new Date()+' ' + resp.error.message +" (comment count : "+comments.length+")");
+              console.log('LOADING_COMMENTS: An error occured (grab even more):  '+new Date()+' ' + resp.error.message +" (comment count : "+doc_info.comments.length+")");
             }
           });
         }

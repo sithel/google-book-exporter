@@ -90,9 +90,9 @@ function collect_all_paragraphs(copy) {
   copy.find('>p').each(function(i, x){
     var el = $(x)
     var text = el.text();
-    // why >10? Eh, magic constants. I don't want to pick up small margin tweaks
-    if (parseInt(el.css('margin-left')) > 10) {
-      text = "\\extraIndent" + test;
+    // why >75? Eh, magic constants. I don't want to pick up small margin tweaks
+    if (parseInt(el.css('margin-left')) > 75) {
+      text = "\\extraIndent{" + text+"}";
     }
     result = result + text + "\n\n";
   });
@@ -103,11 +103,16 @@ function generate_latex_error_report() {
   var result = "";
   $('.problems li').each(function(i,x ){
     var el = $(x);
-    result += "\t" + el.text() + "\n";
+    result += "\t" + el.text() + "\n\n";
     // TODO : clean up the .text() content-- things get a little squished and the tables could be better broken appart
     // console.log("LOADING_COMMENTS: "+el.text());
   });
-  result = "\n\\iffalse\n\nTHESE ARE ERRORS ENCOUNTERED DURING THE EXPORT PROCESS\n" + result + "\n\\fi\n";
+  if (!result) {
+    return "";
+  }
+  result = "\n\\iffalse\n\n"+
+  "======================\nTHESE ARE ERRORS ENCOUNTERED DURING THE EXPORT PROCESS\n======================\n"+
+  "\n" + result + "\n\\fi\n";
   return result;
 }
 
@@ -125,12 +130,41 @@ function inject_footnote_pre_markup(copy){
     var footnote = _.map(copy.find('[name=cmnt'+com_i+']').parent().parent('div').find('span'), function(c) { 
       return $(c).text();
     }).join("\n");
+    // possible_content is a span if it's a normal comment & a sup if it's a reply
     var possible_content = ref_el.parent().prev()
-    var comment = find_comment(footnote, possible_content);
-    if (comment) {
+    var comments = find_comments(footnote, possible_content);
+    if (comments.length == 1) {
+      var comment = comments[0];
       console.log("rebecca, you rock!");
       footnote = mark_up_comment(footnote, comment);
-      attempt_to_highlight(comment, ref_el, possible_content);
+      attempt_to_highlight(comment, ref_el, possible_content, true);
+    } else if (comments.length > 1) {
+      console.log("well, now we have a problem... how to decide?");
+      var matched = _.find(comments, function(comment) {
+        if (attempt_to_highlight(comment, ref_el, possible_content, false)) {
+          footnote = mark_up_comment(footnote, comment);
+          return true;
+        }
+        return false;
+      });
+      if (!matched) {
+        console.warn("TOO MUCH love for '"+footnote+"'");
+        var replies = _.filter(comments, function(c) {
+          return c.isReply;
+        });
+        if (replies.length == 1 && possible_content[0].tagName == "SUP") {
+          // we know it's a reply and we have only 1 reply option... (unlikely, but hey!)
+          footnote = mark_up_comment(footnote, replies[0]);
+        } else if (comments[0].content) {
+          var comment_options = _.reduce(comments, function(memo, c){
+            return memo + "<br>" + repair_pre_markups(mark_up_comment(footnote, c));
+          }, "");
+          $('.problems').append("<li>Unable to understand footnote <span class='comment-in-question'>"+repair_pre_markups(comments[0].content)+"</span>, too many options & none that matched <span class='comment-in-question good'>"+repair_pre_markups(possible_content.text())+"</span>. Optional comment markups: <span class='comment-in-question bad'>"+comment_options+"</span> </span>");
+        }
+        // footnote = mark_up_comment(footnote, comments[0]);
+      } else {
+        console.log("rebecca, you totally picked the gem amongst failures");
+      }
     } else {
       console.warn("no love for '"+footnote+"'");
       $('.problems').append("<li>Unable to find a matching comment for footnote: <span class='comment-in-question bad'>"+footnote+"</span>");
@@ -204,12 +238,12 @@ function correct_span_markup(copy) {
       }
     }
 
-    if (el.css('text-align') == "center") {
-      el.text("\\begin{center}\n"+el.text()+"\n\\end{center}\n");
-    }
-
     if (el.css('text-decoration') == "underline") {
       el.text("\\underline{ "+el.text()+" }");
+    }
+
+    if (el.css('text-align') == "center") {
+      el.text("\\begin{center}\n"+el.text()+"\n\\end{center}\n");
     }
   });
 }
@@ -232,9 +266,17 @@ function correct_list_markup(copy) {
 // This can be run repeatedly without expensive calculations
 function determine_output() {
   var result = latex_config.latex_chapter + latex_config.error_report;
+  result += "\n\\vspace{\\fill}\n\n" +
+    "\\begin{flushright}\n"+
+    "\\textsubscript{last edited by \\textbf{"+doc_info.lastEditor+"} @ "+moment(doc_info.lastEdit).format('MM/DD/YY h:mma')+"}\n"+
+    "% Exported @ "+moment(new Date()).format('MM/DD/YY h:mma')+"\n"+
+    "\\end{flushright}\n";
+
   var option = $('.output-option:checked').val()
   if (option == "chap-only") {
-    // keep the result as-is
+    result =  "\\setcounter{chapter}{ "+ (latex_config.chapter_count - 1)+" }\n"+  //gotta -1 since the chapter commant auto-bumps it up!
+      "\\chapter{"+ latex_config.chapter_title +"}\n"+ 
+      result;
   } else if (option == "both") {
     result =  $('.header').text() +
       "\n\n\n" + 
@@ -260,31 +302,29 @@ function determine_output() {
 // }
 
 
-function find_comment(footnote, possible_content) {
-  // TODO : doesn't handle the duplicate footnote issues
+// returns an ARRAY of comments that match
+function find_comments(footnote, possible_content) {
   // No scrubbing here because it happens PRE scrubbing
   var footnote = footnote.replace(/\u00A0/g, " ");
   console.log("Looking for footnote '"+footnote+"' --- ")
-  return _.reduce(comments, function(memo, c) {
-    if (memo) {
-      return memo;
-    }
+  return _.reduce(doc_info.comments, function(memo, c) {
     if (c.content == footnote) {
-      return c;
-      // console.log("  >> MATCHES!");
+      memo.push(c);
     }
-    // console.log("  >> does NOT match '"+c.content+"'")
-    return _.find(c.replies, function(r) {
+    return memo.concat(find_replies(footnote, c));
+  }, []);
+}
+
+function find_replies(footnote, comment) {
+  return _.reduce(comment.replies, function(memo_r, r) {
       r.isReply = true;
+      r.parentCommentMarkup = mark_up_comment(comment.content, comment);
+      r.context = comment.context;
       if (r.content == footnote) {
-         return true;
-         // console.log("    >>>> MATCHES!");
-      } else {
-        // console.log("    >>>> does NOT match reply '"+r.content+"'");
+         memo_r.push(r);
       }
-      return r.content == footnote;
-    });
-  }, null);
+      return memo_r;
+  }, []);
 }
 
 function mark_up_comment(footnote, comment) {
@@ -308,9 +348,24 @@ function repair_pre_markups(result) {
   return result;
 }
 
-function attempt_to_highlight(comment, ref_el, possible_content) {
+function attempt_to_highlight(comment, ref_el, possible_content, report_errors) {
   if (!comment.context || !comment.context.value) {
-    return;
+    return false;
+  }
+  if (possible_content[0].tagName == "SUP") {
+    if (comment.isReply && comment.parentCommentMarkup == possible_content.text()) {
+      console.log("YES! paired a reply to it's comment...");
+      return true;
+    } else if(comment.isReply) {
+      console.warn("ath> it IS a reply...");
+      console.warn("at> parentCommentMarkup: "+comment.parentCommentMarkup);
+      console.warn("at> possible_content:    "+possible_content.text());
+      console.warn("at> comment context:     "+comment.context.value);
+      console.warn("at> comment content:     "+comment.content)
+
+    }
+    console.warn("We're attempting to highlight something that's a reply");
+    return false;
   }
   // the Google Drive API's comments don't serve non breaking spaces like this
   var possible_content_text = possible_content.text().replace(/\u00A0/g, " ").trim();
@@ -319,19 +374,24 @@ function attempt_to_highlight(comment, ref_el, possible_content) {
 
   if (possible_content_text == comment_text) {
     possible_content.text("REBECCAxxBEGINxxHIGHLIGHTxx"+possible_content_text+"xxENDxxHIGHLIGHT");
+    return true;
   } else if (comment_text.indexOf(possible_content_text) > -1) {
     console.warn("I ALMOST mushed (but didn't) because I've got `"+possible_content_text+"` vs `"+comment_text+"`");
     var match_results = dangerously_grab_text(comment_text, possible_content_text, possible_content, possible_content);
-    if (!match_results) {
+    if (!match_results && report_errors) {
       $('.problems').append("<li>Unable to highlight for footnote: <span class='comment-in-question'>"+comment.content+"</span>, unable to correctly match (exceeded acceptable limit):"+
       "<table class='comment-contrast'><tr><td>Expected</td></tr>"+
       "<tr><td class='comment-in-question good'>"+comment_text+"</td></tr></table>");
     }
+    return match_results;
   } else {
     console.warn("I didn't mush because I've got `"+possible_content_text+"` vs `"+comment_text+"`");
-    $('.problems').append("<li>Unable to highlight for footnote: <span class='comment-in-question'>"+comment.content+"</span> because:"+
+    if (report_errors) {
+      $('.problems').append("<li>Unable to highlight for footnote: <span class='comment-in-question'>"+comment.content+"</span> because:"+
       "<table class='comment-contrast'><tr><td>Given</td><td>Expected</td></tr>"+
       "<tr><td class='comment-in-question bad'>"+possible_content_text+"</td><td class='comment-in-question good'>"+comment_text+"</td></tr></table>");
+    }
+    return false;
   }
 }
 

@@ -36,9 +36,18 @@
     }
 }
 \newcommand*{\extraIndent}[2][]{%
+  {
+   \parskip=0pt
    \begin{flushright}
     \-\hspace{3cm}#2
     \end{flushright}
+  }
+}
+\newcommand{\quotedDialog}[2][]{%
+   {
+   \parskip=0pt
+   #2
+   }
 }
 \begin{document}
 \pagestyle{mainmatter}

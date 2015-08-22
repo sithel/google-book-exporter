@@ -230,7 +230,6 @@ function correct_span_markup(copy) {
         latex_config.chapter_title += el.text() +" ";
         el.remove();
       } else if (s.indexOf('session ') > -1 && latex_config.chapter_count == 1) {
-        var s = 
         latex_config.chapter_count = parseInt(s.substr(s.indexOf("session")+"session ".length));
         el.remove();
       } else {

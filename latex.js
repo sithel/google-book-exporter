@@ -240,6 +240,9 @@ function correct_span_markup(copy) {
     if (el.css('text-decoration') == "underline") {
       el.text("\\underline{ "+el.text()+" }");
     }
+    if (el.css('text-decoration') == "line-through") {
+      el.text("\\sout{ "+el.text()+" }");
+    }
 
     if (el.css('text-align') == "center") {
       el.text("\\begin{center}\n"+el.text()+"\n\\end{center}\n");

@@ -37,6 +37,13 @@
     {\MakeUppercase {\large \textbf{#2}}}
     }
 }
+\newcommand{\subChapterTitle}[2][]{%
+  {
+\begin{center}
+ {\LARGE \textbf{#2} } 
+\end{center}
+  }
+}
 \newcommand*{\extraIndent}[2][]{%
   {
    \parskip=0pt
@@ -49,6 +56,15 @@
    {
    \parskip=0pt
    #2
+   }
+}
+\newcommand{\deets}[3][]{%
+   {
+   \parskip=0pt
+   
+   \noindent\textit{Notes}: #2
+   \\
+   \noindent\textit{Date}:  ~#3
    }
 }
 \begin{document}

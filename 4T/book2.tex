@@ -1,0 +1,78 @@
+
+\documentclass[10pt]{book}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{soul}
+\usepackage{titlesec}
+\usepackage[normalem]{ulem}
+\setlength{\parindent}{5mm} % Default is 15pt
+\setlength{\parskip}{4mm}
+\titleformat{\chapter}[display]  {\large\filcenter}{\MakeUppercase{\chaptertitlename}~\thechapter}{0pt}{\huge}[\vspace{-40pt}]
+\renewcommand{\chaptertitlename}{Session}
+\usepackage{geometry}
+\geometry{
+ a5paper,
+ bottom=20mm,
+ left=10mm,
+ right=10mm,
+ top=20mm,
+ bindingoffset=2cm,
+}
+\usepackage{fancyhdr}
+\fancypagestyle{mainmatter}{
+  \fancyhf{}
+  \fancyhead[CE]{Session \thechapter}
+  \fancyhead[CO]{\leftmark}
+  \fancyhead[LE,RO]{\thepage}
+}
+\newcommand*{\sceneHeadline}[2][]{%
+    \noindent\makebox[\linewidth]{#1%
+    \textbf{#2}
+    \leaders\hrule height \dimexpr.5ex+.2pt\relax depth \dimexpr -.5ex+.2pt\relax \hfill\kern0pt% Right rule
+    }
+}
+\newcommand*{\jumpHeadline}[2][]{%
+    \noindent\makebox[\linewidth]{#1%
+    \leaders\hrule height \dimexpr1.5ex+0pt\relax depth \dimexpr -.5ex+1pt\relax \hfill% Left rule
+    {\MakeUppercase {\large \textbf{#2}}}
+    }
+}
+\newcommand{\subChapterTitle}[2][]{%
+  {
+\begin{center}
+ {\LARGE \textbf{#2} } 
+\end{center}
+  }
+}
+\newcommand*{\extraIndent}[2][]{%
+  {
+   \parskip=0pt
+   \begin{flushright}
+    \-\hspace{3cm}#2
+    \end{flushright}
+  }
+}
+\newcommand{\quotedDialog}[2][]{%
+   {
+   \parskip=0pt
+   #2
+   }
+}
+\newcommand{\deets}[3][]{%
+   {
+   \parskip=0pt
+   
+   \noindent\textit{Notes}: #2
+   \\
+   \noindent\textit{Date}:  ~#3
+   }
+}
+\begin{document}
+\pagestyle{mainmatter}
+\renewcommand{\chaptermark}[1]{ \markboth{#1}{} }
+
+   \tableofcontents
+
+\include{ch21}    
+
+\end{document}

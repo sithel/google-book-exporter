@@ -81,6 +81,10 @@ function latexIt() {
   latex_config.latex_chapter = result;
   latex_config.error_report = error_report;
   determine_output();
+  $('.doc_orig').find('img').each(function(i, x) {
+    var el = $(x);
+    $('.problems').append("<li>WARNING! There is an image that will need to be manually exported!");
+  });
 }
 var latexItSafely = _.debounce(latexIt, 10000);
 

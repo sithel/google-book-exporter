@@ -2,6 +2,7 @@
 \documentclass[10pt]{book}
 \usepackage{color}
 \usepackage{graphicx}
+\usepackage{scrextend}
 \usepackage{pifont}
 \usepackage{soul}
 \usepackage{titlesec}
@@ -68,11 +69,26 @@
    \noindent\textit{Date}:  ~#3
    }
 }
+\newcommand{\memoryScene}[2][] {
+ {
+ \parskip=0pt
+  \parindent=0pt
+  \leftmargin=5cm
+  \begin{addmargin}[3em]{0em}
+  ~\\
+  #2
+  \end{addmargin}
+ }
+}
 \begin{document}
+
+\pagenumbering{gobble}
+\include{book1_intro}
+\pagenumbering{arabic}
+\tableofcontents
+
 \pagestyle{mainmatter}
 \renewcommand{\chaptermark}[1]{ \markboth{#1}{} }
-
-   \tableofcontents
 
 \include{ch1}
 \include{ch2}

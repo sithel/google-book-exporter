@@ -363,11 +363,14 @@
 \usepackage{geometry}
 \geometry{
  a5paper,
- bottom=20mm,
- left=10mm,
- right=10mm,
+ % due to the folded nature of my printouts, and the failure to scale the paper correctly
+ % the bottom and non-bound margins have extra space. The top and the bound margin
+ % are expected to be the specified offsets here.
+ bottom=2mm,
+ left=2mm,
+ right=2mm,
  top=20mm,
- bindingoffset=2cm,
+ bindingoffset=15mm,
 }
 \usepackage{fancyhdr}
 \fancypagestyle{mainmatter}{

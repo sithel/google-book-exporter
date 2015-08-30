@@ -3,6 +3,7 @@
 %\usepackage{pgfpages}
 %\pgfpagesuselayout{4 on 1}[a4paper,border shrink=5mm]
 \usepackage{amsfonts}
+\usepackage{multicol }
 \usepackage{amssymb}
 \usepackage{color}
 \usepackage{graphicx}
@@ -76,6 +77,17 @@
    \noindent\textit{Date}:  ~#3
    }
 }
+
+\newcommand{\splitConvo}[3][]{%
+
+#2
+\ifnum\pdfstrcmp{}{#3}=0
+\else
+\\
+\extraIndent{\textit{\textbf{#3}}}
+\fi
+}
+
 \newcommand{\memoryScene}[2][] {
  {
  \parskip=0pt
@@ -115,6 +127,7 @@
 
 \pagestyle{mainmatter}
 \renewcommand{\chaptermark}[1]{ \markboth{#1}{} }
+
 
 \include{ch21}
 \include{ch22}

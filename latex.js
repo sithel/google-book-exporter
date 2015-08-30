@@ -4,6 +4,7 @@ var latex_config = {};
 
 // This needs to happen AFTER we match comments & highlighted text
 function latex_scrub_str(text) {
+  // CATCH accented letters. Arrows.
   var orig_text = text;
   text = text.replace(/_/g, "\\_")
   text = text.replace(/#/g, "\\#")
